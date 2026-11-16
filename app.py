@@ -38,8 +38,8 @@ def load_hotspots():
                 raise ValueError('each item must be a pair of numbers')
             x, y = float(item[0]), float(item[1])
             spots.append((x, y))
-        if len(spots) != 10:
-            raise ValueError('expected 10 points, got %s' % len(spots))
+        if not 1 <= len(spots) <= 30:
+            raise ValueError('expected between 1 and 30 points, got %s' % len(spots))
         return spots
     except SystemExit:
         raise
@@ -49,6 +49,7 @@ def load_hotspots():
         raise SystemExit(msg)
 
 HOTSPOTS = load_hotspots()
+NSPOTS = len(HOTSPOTS)
 _login_attempts = {}
 
 def _puzzle_size():
@@ -57,7 +58,7 @@ def _puzzle_size():
     with Image.open(path) as im:
         return im.size
 IMAGE_WIDTH, IMAGE_HEIGHT = _puzzle_size()
-HIT_RADIUS = max(48, int(round(min(IMAGE_WIDTH, IMAGE_HEIGHT) * 0.07)))
+HIT_RADIUS = max(24, int(round(min(IMAGE_WIDTH, IMAGE_HEIGHT) * 0.07)))
 
 def conn():
     c = sqlite3.connect(DB, timeout=10, check_same_thread=False)
@@ -118,8 +119,59 @@ def record_login_fail():
 def clear_login_fails():
     _login_attempts.pop(client_ip(), None)
 
-BASE = '''<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>{{ title }} | LJ Hooker Alice Springs Christmas</title><style>
-:root{font-family:Inter,system-ui,-apple-system,Segoe UI,sans-serif;color:#262329;background:#fbf7f3}*{box-sizing:border-box}body{margin:0}header{background:#a41e2b;color:white;padding:16px 5%;display:flex;justify-content:space-between;align-items:center}header b{letter-spacing:.1em;font-size:15px}header span{font-size:12px;opacity:.9}main{max-width:1020px;margin:auto;padding:30px 18px 80px}.hero{background:linear-gradient(125deg,#a41e2b,#641823);color:white;border-radius:24px;padding:40px 32px;text-align:center}.eyebrow{text-transform:uppercase;letter-spacing:.18em;font-size:12px;font-weight:700}.hero h1{font-size:clamp(34px,6vw,60px);line-height:1.05;margin:12px 0}.hero p{font-size:17px;opacity:.94}.pill{display:inline-block;border-radius:30px;padding:9px 17px;background:#fff2d3;color:#6b3210;font-weight:800}.panel{background:white;border:1px solid #ebdfd9;box-shadow:0 6px 30px #3d1e1910;border-radius:20px;padding:25px;margin-top:22px}h2{margin:0 0 14px;font-size:24px}h3{margin:0 0 8px}.muted{color:#716c72}.prizes{display:grid;grid-template-columns:repeat(5,1fr);gap:12px}.prize{border:1px solid #eadfdc;border-radius:14px;padding:15px;background:#fffaf7}.prize strong{display:block;font-size:21px;color:#a41e2b;margin-top:8px}.grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}.puzzle{position:relative;overflow:hidden;border:2px solid #e5d9d4;border-radius:14px;cursor:crosshair;touch-action:manipulation}.puzzle img{width:100%;display:block}.mark{position:absolute;border:4px solid #11a26a;background:#11a26a36;border-radius:50%;width:7%;aspect-ratio:1;transform:translate(-50%,-50%);pointer-events:none}label{font-weight:700;display:block;margin:15px 0 7px}input,textarea{width:100%;border:1px solid #cfc3c0;border-radius:10px;padding:13px;font:inherit}textarea{min-height:110px;resize:vertical}.check{display:flex;gap:10px;align-items:start;margin-top:15px}.check input{width:auto;margin-top:5px}.check label{margin:0;font-weight:400}button,.btn{display:inline-block;background:#a41e2b;border:0;border-radius:12px;padding:15px 22px;color:white;font:inherit;font-weight:800;cursor:pointer;text-decoration:none}button:disabled{background:#a9a3a5;cursor:not-allowed}.secondary{background:#302c30}.progress{background:#f1e7e4;border-radius:20px;height:13px;overflow:hidden}.bar{background:#168c62;height:100%;width:0%;transition:width .2s}.error{background:#ffebea;color:#8c1723;padding:12px;border-radius:10px;margin:15px 0}.success{background:#e6f7ee;color:#12603b;padding:14px;border-radius:10px}.small{font-size:13px}footer{text-align:center;padding:25px;color:#766b6b;font-size:12px}.adminlink{color:#eee;font-size:12px}.stats{display:flex;gap:15px;flex-wrap:wrap}.stats div{padding:18px;border-radius:14px;background:#fff5ee}table{border-collapse:collapse;width:100%}th,td{text-align:left;padding:10px;border-bottom:1px solid #eee;font-size:13px} .overflow{overflow:auto}@media(max-width:700px){.prizes{grid-template-columns:1fr 1fr}.grid{grid-template-columns:1fr}.hero{padding:28px 16px}.panel{padding:18px}} </style></head><body><header><b>LJ HOOKER <span>ALICE SPRINGS</span></b><span>CHRISTMAS 2026</span></header><main>{{ body|safe }}</main><footer>Community competition concept · LJ Hooker Alice Springs · Subject to final terms and management approval</footer></body></html>'''
+BASE = '''<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#c8102e"><title>{{ title }} | LJ Hooker Alice Springs Christmas</title><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet"><style>
+:root{--red:#d62839;--red2:#b81d2f;--green:#1e8a4c;--green2:#e3f5e9;--gold:#f6b93b;--gold2:#fff4d6;--ink:#2b2d42;--muted:#5f6475;--sky:#eaf6ff;--line:#e3ecf5;font-family:Nunito,system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;color:var(--ink)}
+*{box-sizing:border-box}
+body{margin:0;min-height:100vh;position:relative;background:#fffdf8 linear-gradient(180deg,#eaf6ff 0,#f7fbff 420px,#fffdf8 900px) no-repeat}html{background:#fffdf8}
+body:before{content:"";position:absolute;left:0;right:0;top:0;height:100%;min-height:100vh;pointer-events:none;z-index:0;opacity:.55;background-image:radial-gradient(#fff 2px,transparent 2.5px),radial-gradient(#cfe6fb 1.5px,transparent 2px);background-size:60px 60px,34px 34px;background-position:0 0,17px 23px}
+header.site,main,footer.site{position:relative;z-index:1}
+h1,h2,h3,.fun{font-family:Fredoka,Nunito,system-ui,sans-serif}
+a{color:var(--red2)}
+header.site{background:#fff;box-shadow:0 2px 14px rgba(43,45,66,.08)}header.site .in{max-width:1080px;margin:auto;padding:12px 20px;display:flex;align-items:center}
+header.site a.brand{display:flex;align-items:center;gap:14px;text-decoration:none;color:var(--ink)}header.site img{height:48px;width:auto;display:block}
+header.site .office{font-weight:800;font-size:18px;color:var(--ink);border-left:2px solid #e2e2e2;padding-left:14px;line-height:1.1}
+.wordmark{display:inline-block;background:#ffe600;color:#000;font-weight:800;font-size:22px;padding:8px 14px;border-radius:4px;font-family:Arial,Helvetica,sans-serif;letter-spacing:-.01em}
+main{max-width:1080px;margin:auto;padding:26px 18px 60px}
+.hero{position:relative;overflow:hidden;background:linear-gradient(160deg,#ffffff 0%,#fff6f6 55%,#ffeef0 100%);border:3px solid #fff;box-shadow:0 10px 30px rgba(214,40,57,.14);border-radius:30px;padding:46px 28px 30px;text-align:center}
+.hero:before,.hero:after{position:absolute;font-size:44px;opacity:.9}.hero:before{content:"❄️";left:22px;top:18px;transform:rotate(-12deg)}.hero:after{content:"⭐";right:24px;top:20px;transform:rotate(12deg)}
+.hero .deco{font-size:28px;letter-spacing:8px;margin-top:4px;white-space:nowrap;overflow:hidden}
+.eyebrow{display:inline-block;background:var(--green2);color:var(--green);border-radius:999px;padding:7px 16px;font-weight:800;font-size:14px}
+.hero h1{font-size:clamp(36px,7vw,66px);line-height:1.02;margin:16px 0 10px;font-weight:700;color:var(--red)}.hero h1 em{font-style:normal;color:var(--green)}
+.hero p{font-size:18px;line-height:1.55;max-width:640px;margin:10px auto 22px;color:var(--ink)}
+.pill{display:inline-block;border-radius:999px;padding:12px 22px;background:var(--gold);color:#5a3a00;font-weight:800;font-size:16px;box-shadow:0 4px 0 #d99a1e;font-family:Fredoka,Nunito,sans-serif;letter-spacing:.02em}
+.hero .pill{margin-bottom:22px}
+.panel{background:#fff;border-radius:26px;padding:26px;margin-top:22px;box-shadow:0 8px 26px rgba(43,45,66,.08);border:2px solid #fff}
+h2{margin:0 0 14px;font-size:27px;font-weight:600;color:var(--ink)}h2 .num{display:inline-flex;align-items:center;justify-content:center;width:40px;height:40px;border-radius:50%;background:var(--red);color:#fff;font-size:22px;margin-right:10px;vertical-align:3px;box-shadow:0 3px 0 var(--red2)}
+h3{margin:0 0 8px;font-size:19px;font-weight:600;color:var(--green)}.muted{color:var(--muted)}p{line-height:1.6}
+.prizes{display:grid;grid-template-columns:repeat(5,1fr);gap:12px}.prize{border-radius:20px;padding:16px;background:var(--gold2);font-size:15px;text-align:center}.prize:nth-child(2n){background:var(--green2)}.prize:nth-child(3n){background:#ffecee}.prize strong{display:block;font-family:Fredoka,Nunito,sans-serif;font-size:26px;color:var(--red);margin:6px 0 2px;font-weight:700}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+.puzzle{position:relative;overflow:hidden;border:4px solid #fff;border-radius:22px;cursor:pointer;touch-action:manipulation;background:#fff;box-shadow:0 0 0 3px var(--green2),0 6px 18px rgba(43,45,66,.08)}.puzzle img{width:100%;height:auto;display:block}
+.mark{position:absolute;border:5px solid var(--green);background:rgba(30,138,76,.16);box-shadow:0 0 0 3px #fff;border-radius:50%;width:7%;aspect-ratio:1;transform:translate(-50%,-50%);pointer-events:none;animation:pop .45s cubic-bezier(.3,1.6,.5,1)}@keyframes pop{0%{transform:translate(-50%,-50%) scale(.2);opacity:0}100%{transform:translate(-50%,-50%) scale(1);opacity:1}}
+.miss{position:absolute;transform:translate(-50%,-50%);pointer-events:none;font-size:22px;animation:fade .7s ease-out forwards}@keyframes fade{to{opacity:0;transform:translate(-50%,-90%)}}
+.sparkle{position:absolute;pointer-events:none;font-size:20px;transform:translate(-50%,-50%);animation:fly .8s ease-out forwards}@keyframes fly{to{opacity:0;transform:translate(calc(-50% + var(--dx)),calc(-50% + var(--dy))) scale(.6) rotate(160deg)}}
+.counter{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:6px 0 12px;flex-wrap:wrap}.counter b{font-family:Fredoka,Nunito,sans-serif;font-size:24px;color:var(--red)}.counter .chip{background:var(--gold2);color:#7a5200;border-radius:999px;padding:8px 14px;font-weight:800;font-size:15px}
+.stars{font-size:24px;letter-spacing:3px;line-height:1.3;word-break:break-all}.stars span{filter:grayscale(1);opacity:.28;display:inline-block;transition:all .3s}.stars span.on{filter:none;opacity:1;transform:scale(1.15)}
+.progress{background:#eef2f7;border-radius:999px;height:18px;overflow:hidden;border:2px solid #fff;box-shadow:inset 0 1px 3px rgba(0,0,0,.08)}.bar{height:100%;width:0%;transition:width .35s;background:repeating-linear-gradient(-45deg,var(--red) 0 12px,#fff 12px 18px,var(--green) 18px 30px,#fff 30px 36px)}
+.toast{position:fixed;left:50%;bottom:26px;transform:translate(-50%,40px);opacity:0;background:#fff;color:var(--green);font-family:Fredoka,Nunito,sans-serif;font-weight:600;font-size:22px;padding:14px 26px;border-radius:999px;box-shadow:0 10px 30px rgba(43,45,66,.2);transition:all .3s;z-index:20;pointer-events:none;white-space:nowrap}.toast.show{opacity:1;transform:translate(-50%,0)}
+.confetti{position:fixed;top:-30px;z-index:30;pointer-events:none;font-size:26px;animation:fall linear forwards}@keyframes fall{to{transform:translateY(110vh) rotate(540deg)}}
+.celebrate{display:none;background:linear-gradient(135deg,var(--green2),#fff6d9);border-radius:20px;padding:18px;margin-top:16px;text-align:center;font-family:Fredoka,Nunito,sans-serif;font-size:24px;font-weight:600;color:var(--green)}.celebrate.show{display:block;animation:pop2 .5s cubic-bezier(.3,1.6,.5,1)}@keyframes pop2{from{transform:scale(.7);opacity:0}}
+label{font-weight:800;display:block;margin:16px 0 7px;font-size:15px}input,textarea{width:100%;border:2px solid #dbe4ee;border-radius:16px;padding:14px;font:inherit;background:#fbfdff}input:focus,textarea:focus{outline:none;border-color:var(--green);box-shadow:0 0 0 4px var(--green2)}textarea{min-height:110px;resize:vertical}
+.check{display:flex;gap:10px;align-items:start;margin-top:15px}.check input{width:22px;height:22px;margin-top:2px;accent-color:var(--green);flex:none}.check label{margin:0;font-weight:600}
+button,.btn{display:inline-block;background:var(--red);border:0;border-radius:999px;padding:16px 30px;color:#fff;font-family:Fredoka,Nunito,sans-serif;font-size:19px;font-weight:600;cursor:pointer;text-decoration:none;box-shadow:0 5px 0 var(--red2);transition:transform .08s,box-shadow .08s,filter .15s}button:hover:not(:disabled),.btn:hover{filter:brightness(1.06)}button:active:not(:disabled),.btn:active{transform:translateY(4px);box-shadow:0 1px 0 var(--red2)}
+button:disabled{background:#d9dee5;color:#7d8594;box-shadow:0 5px 0 #c3c9d2;cursor:not-allowed}.secondary{background:var(--green);box-shadow:0 5px 0 #166b3a}.secondary:active{box-shadow:0 1px 0 #166b3a}
+.error{background:#ffecee;color:#8c1723;padding:14px 16px;border-radius:16px;margin:15px 0;font-weight:700}.success{background:var(--green2);color:#12603b;padding:14px;border-radius:16px}.small{font-size:14px}
+footer.site{text-align:center;padding:26px 18px 34px;color:var(--muted);font-size:14px}footer.site b{color:var(--ink)}footer.site a{color:var(--red2);font-weight:700}
+.stats{display:flex;gap:14px;flex-wrap:wrap}.stats div{padding:16px 22px;border-radius:18px;background:var(--green2)}.stats div:nth-child(2){background:var(--gold2)}.stats b{font-family:Fredoka,Nunito,sans-serif;font-size:26px;margin-right:4px;color:var(--ink)}
+table{border-collapse:collapse;width:100%}th,td{text-align:left;padding:10px;border-bottom:1px solid #eef1f5;font-size:14px}th{background:#f6f9fc;font-size:13px}.overflow{overflow:auto;border-radius:14px}
+.login{max-width:460px;margin:30px auto}
+@media(max-width:760px){.prizes{grid-template-columns:1fr 1fr}.grid{grid-template-columns:1fr}.hero{padding:44px 14px 22px;border-radius:24px}.hero:before,.hero:after{font-size:24px;top:10px}.hero:before{left:12px}.hero:after{right:12px}.hero .deco{font-size:20px;letter-spacing:4px}.eyebrow{font-size:12px;padding:6px 12px}.panel{padding:18px;border-radius:22px}header.site img{height:38px}header.site .office{font-size:16px}main{padding:16px 12px 40px}h2{font-size:23px}.toast{font-size:18px}}
+@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style></head><body><header class="site"><div class="in"><a class="brand" href="/"><img src="/static/ljh_logo.png" alt="LJ Hooker"><span class="office">Alice Springs</span></a></div></header><main>{{ body|safe }}</main><footer class="site"><b>LJ Hooker Alice Springs</b> &middot; <a href="/terms">Terms</a></footer></body></html>'''
+
+_LOGO = os.path.join(app.static_folder or 'static', 'ljh_logo.png')
+LOGO_HTML = ('<img src="/static/ljh_logo.png" alt="LJ Hooker">' if os.path.exists(_LOGO)
+             else '<span class="wordmark">LJ Hooker</span>')
+BASE = BASE.replace('<img src="/static/ljh_logo.png" alt="LJ Hooker">', LOGO_HTML)
 
 def page(body, title='Spot the Magic'):
     return render_template_string(BASE, title=title, body=body)
@@ -128,17 +180,21 @@ def page(body, title='Spot the Magic'):
 def home():
     token = csrf()
     closed = not is_open()
-    body = '''<section class="hero"><div class="eyebrow">A little Christmas magic for Alice Springs</div><h1>SPOT THE MAGIC<br>OF CHRISTMAS 🎄</h1><p>Find 10 differences. Share your favourite Christmas memory in 25 words or less.<br>Enter for a chance to win one of five prizes!</p><span class="pill">5 PRIZES • 5 WINNERS</span></section>
+    body = '''<section class="hero"><div class="eyebrow">🎅 A Christmas activity for kids &amp; families</div><h1>Spot the Magic<br>of <em>Christmas!</em> 🎄</h1><p>Find NSPOTS differences. Share your favourite Christmas memory in 25 words or less.<br>Enter for a chance to win one of five prizes!</p><span class="pill">🎁 5 PRIZES • 5 WINNERS 🎁</span><div class="deco" aria-hidden="true">🎄 ⭐ 🎁 ❄️ 🦌 ❄️ 🎁 ⭐ 🎄</div></section>
  <section class="panel"><h2>🎁 Five chances to win</h2><div class="prizes"><div class="prize">🥇 First prize<strong>$500</strong>Ultimate Christmas Package</div><div class="prize">🥈 Second prize<strong>$300</strong>Family Fun Package</div><div class="prize">🥉 Third prize<strong>$150</strong>Christmas Treat Package</div><div class="prize">🎬 Fourth prize<strong>Cinema</strong>Family-of-four voucher</div><div class="prize">🍿 Fifth prize<strong>Cinema</strong>Family-of-four voucher</div></div><p class="muted small">Cinema voucher values and conditions to be confirmed. Prizes are proposed pending approval.</p></section>
- <section class="panel"><h2>1. Find the 10 differences</h2><p class="muted">Tap the differences in either picture. Green circles show what you have found. Zoom in on your phone if needed.</p><p><b id="count">0 / 10 found</b></p><div class="progress"><div class="bar" id="bar"></div></div><div class="grid" style="margin-top:16px"><div><h3>Picture A</h3><div class="puzzle" data-puzzle="a"><img alt="Christmas scene A" src="/static/Christmas_Spot_10_A.png"></div></div><div><h3>Picture B</h3><div class="puzzle" data-puzzle="b"><img alt="Christmas scene B" src="/static/Christmas_Spot_10_B.png"></div></div></div><p id="puzzlemsg" class="muted small" aria-live="polite">Find all 10 to unlock the entry form.</p></section>
- <section class="panel" id="entry"><h2>2. Your favourite Christmas memory</h2><p>Tell us your favourite Christmas memory in <b>25 words or less</b>.</p><form method="post" action="/enter" id="entryform"><input type="hidden" name="csrf" value="TOKEN"><div style="display:none"><label>Leave this field empty<input name="website" autocomplete="off"></label></div><label for="memory">My Christmas memory</label><textarea name="memory" id="memory" maxlength="300" required placeholder="One Christmas I remember..."></textarea><div class="muted small" id="words">0 / 25 words</div><div class="grid"><div><label for="entrant">Entrant's full name</label><input id="entrant" name="entrant" maxlength="100" required></div><div><label for="guardian">Parent/guardian name (if entrant is under 18)</label><input id="guardian" name="guardian" maxlength="100"></div></div><label for="contact">Parent/guardian or adult entrant's email address</label><input type="email" name="contact" id="contact" maxlength="150" required><div class="check"><input type="checkbox" name="terms" value="yes" id="terms" required><label for="terms">I am 18 or older and am entering for myself or with the permission of the child’s parent/guardian. I accept the <a href="/terms" target="_blank">competition terms and privacy notice</a>.</label></div><div class="check"><input type="checkbox" name="marketing" value="yes" id="marketing"><label for="marketing">Optional: I would like to receive LJ Hooker Alice Springs marketing emails. This is not required to enter.</label></div><p><button id="submit" disabled>Complete the puzzle to enter</button></p><p class="muted small">One entry per contact email. No purchase necessary. The draw is random; finding the differences and completing the memory are eligibility steps, not judging criteria.</p></form></section>'''.replace('TOKEN', token)
+ <section class="panel"><h2><span class="num">1</span>Find the NSPOTS differences</h2><p class="muted">Tap the differences in either picture. A green circle pops up each time you find one! Zoom in on your phone if needed.</p><div class="counter"><b id="count">0 / NSPOTS found</b><span class="chip" id="chip">🔍 Keep looking!</span></div><div class="stars" id="stars" aria-hidden="true">STARS</div><div class="progress"><div class="bar" id="bar"></div></div><div class="grid" style="margin-top:16px"><div><h3>Picture A</h3><div class="puzzle" data-puzzle="a"><img alt="Christmas scene A" src="/static/Christmas_Spot_10_A.png"></div></div><div><h3>Picture B</h3><div class="puzzle" data-puzzle="b"><img alt="Christmas scene B" src="/static/Christmas_Spot_10_B.png"></div></div></div><p id="puzzlemsg" class="muted small" aria-live="polite">Find all NSPOTS to unlock the entry form.</p><div class="celebrate" id="celebrate">🎉 Hooray! You found all NSPOTS differences! 🎉</div></section><div class="toast" id="toast" role="status"></div>
+ <section class="panel" id="entry"><h2><span class="num">2</span>Your favourite Christmas memory</h2><p>Tell us your favourite Christmas memory in <b>25 words or less</b>.</p><form method="post" action="/enter" id="entryform"><input type="hidden" name="csrf" value="TOKEN"><div style="display:none"><label>Leave this field empty<input name="website" autocomplete="off"></label></div><label for="memory">My Christmas memory</label><textarea name="memory" id="memory" maxlength="300" required placeholder="One Christmas I remember..."></textarea><div class="muted small" id="words">0 / 25 words</div><div class="grid"><div><label for="entrant">Entrant's full name</label><input id="entrant" name="entrant" maxlength="100" required></div><div><label for="guardian">Parent/guardian name (if entrant is under 18)</label><input id="guardian" name="guardian" maxlength="100"></div></div><label for="contact">Parent/guardian or adult entrant's email address</label><input type="email" name="contact" id="contact" maxlength="150" required><div class="check"><input type="checkbox" name="terms" value="yes" id="terms" required><label for="terms">I am 18 or older and am entering for myself or with the permission of the child’s parent/guardian. I accept the <a href="/terms" target="_blank">competition terms and privacy notice</a>.</label></div><div class="check"><input type="checkbox" name="marketing" value="yes" id="marketing"><label for="marketing">Optional: I would like to receive LJ Hooker Alice Springs marketing emails. This is not required to enter.</label></div><p><button id="submit" disabled>Complete the puzzle to enter</button></p><p class="muted small">One entry per contact email. No purchase necessary. The draw is random; finding the differences and completing the memory are eligibility steps, not judging criteria.</p></form></section>'''.replace('TOKEN', token).replace('STARS', '<span>⭐</span>' * NSPOTS).replace('NSPOTS', str(NSPOTS))
     if closed:
-        body = '<section class="hero"><h1>Entries are closed</h1><p>Thank you for joining our Christmas community giveaway.</p></section>'
+        body = '<section class="hero"><h1>Entries are closed ❄️</h1><p>Thank you for joining our Christmas community giveaway.</p></section>'
     script = '''<script>
-const csrfToken="TOKEN",imgW=IMG_W,imgH=IMG_H;
-for(const p of document.querySelectorAll('.puzzle'))p.addEventListener('click',async e=>{const r=p.getBoundingClientRect(),x=(e.clientX-r.left)/r.width*imgW,y=(e.clientY-r.top)/r.height*imgH;let data;try{const res=await fetch('/spot',{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-Token':csrfToken},body:JSON.stringify({x,y})});if(!res.ok)return;data=await res.json()}catch(err){return}if(!data.hit)return;for(const q of document.querySelectorAll('.puzzle')){const m=document.createElement('span');m.className='mark';m.style.left=(data.x/imgW*100)+'%';m.style.top=(data.y/imgH*100)+'%';q.append(m)}document.querySelector('#count').textContent=data.found+' / 10 found';document.querySelector('#bar').style.width=data.found*10+'%';if(data.solved){document.querySelector('#puzzlemsg').textContent='Wonderful! You found all 10. Complete your entry below.';document.querySelector('#submit').disabled=false;document.querySelector('#submit').textContent='Enter the Christmas draw'}});
+const csrfToken="TOKEN",imgW=IMG_W,imgH=IMG_H,total=NSPOTS;
+const cheers=['Great spotting!','Well done!','You found one!','Super sleuth!','Ho ho ho!','Brilliant!','Amazing eyes!','Fantastic!'];
+function toast(t){const el=document.querySelector('#toast');el.textContent=t;el.classList.add('show');clearTimeout(toast.t);toast.t=setTimeout(()=>el.classList.remove('show'),1400)}
+function sparkle(p,lx,ly){for(let i=0;i<8;i++){const s=document.createElement('span');s.className='sparkle';s.textContent=['✨','⭐','❄️'][i%3];const a=i/8*6.283;s.style.left=lx+'%';s.style.top=ly+'%';s.style.setProperty('--dx',Math.cos(a)*60+'px');s.style.setProperty('--dy',Math.sin(a)*60+'px');p.append(s);setTimeout(()=>s.remove(),900)}}
+function confetti(){const items=['🎉','⭐','❄️','🎄','🎁','✨','🔔'];for(let i=0;i<60;i++){const c=document.createElement('span');c.className='confetti';c.textContent=items[i%items.length];c.style.left=Math.random()*100+'vw';c.style.animationDuration=(2.2+Math.random()*2.2)+'s';c.style.animationDelay=Math.random()*.8+'s';document.body.append(c);setTimeout(()=>c.remove(),5500)}}
+for(const p of document.querySelectorAll('.puzzle'))p.addEventListener('click',async e=>{const r=p.getBoundingClientRect(),x=(e.clientX-r.left)/r.width*imgW,y=(e.clientY-r.top)/r.height*imgH;let data;try{const res=await fetch('/spot',{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-Token':csrfToken},body:JSON.stringify({x,y})});if(!res.ok)return;data=await res.json()}catch(err){return}if(!data.hit){const m=document.createElement('span');m.className='miss';m.textContent='❄️';m.style.left=(x/imgW*100)+'%';m.style.top=(y/imgH*100)+'%';p.append(m);setTimeout(()=>m.remove(),800);return}const lx=data.x/imgW*100,ly=data.y/imgH*100;for(const q of document.querySelectorAll('.puzzle')){const m=document.createElement('span');m.className='mark';m.style.left=lx+'%';m.style.top=ly+'%';q.append(m);sparkle(q,lx,ly)}document.querySelector('#count').textContent=data.found+' / '+total+' found';document.querySelector('#bar').style.width=(data.found/total*100)+'%';const st=document.querySelectorAll('#stars span');for(let i=0;i<st.length;i++)st[i].classList.toggle('on',i<data.found);const left=total-data.found;document.querySelector('#chip').textContent=left===1?'⭐ Just 1 to go!':'🔍 '+left+' to go!';if(data.solved){document.querySelector('#chip').textContent='🌟 All found!';document.querySelector('#puzzlemsg').textContent='Wonderful! You found all '+total+'. Complete your entry below.';document.querySelector('#celebrate').classList.add('show');confetti();toast('🎉 You did it!');document.querySelector('#submit').disabled=false;document.querySelector('#submit').textContent='🎁 Enter the Christmas draw'}else toast('✨ '+cheers[Math.floor(Math.random()*cheers.length)])});
 const mem=document.querySelector('#memory');mem?.addEventListener('input',()=>{const n=mem.value.trim()?mem.value.trim().split(/\\s+/).length:0;document.querySelector('#words').textContent=n+' / 25 words';mem.setCustomValidity(n>25?'Please use 25 words or fewer.':'')});
-</script>'''.replace('TOKEN', token).replace('IMG_W', str(IMAGE_WIDTH)).replace('IMG_H', str(IMAGE_HEIGHT))
+</script>'''.replace('TOKEN', token).replace('IMG_W', str(IMAGE_WIDTH)).replace('IMG_H', str(IMAGE_HEIGHT)).replace('NSPOTS', str(NSPOTS))
     return page(body + ('' if closed else script))
 
 @app.post('/spot')
@@ -152,7 +208,7 @@ def spot():
     except (KeyError, TypeError, ValueError):
         abort(400)
     if not (0 <= x <= IMAGE_WIDTH and 0 <= y <= IMAGE_HEIGHT):
-        return jsonify(hit=False, found=len(session.get('found_spots') or []), total=10)
+        return jsonify(hit=False, found=len(session.get('found_spots') or []), total=NSPOTS)
     found = set(session.get('found_spots') or [])
     match = None
     best = HIT_RADIUS
@@ -164,14 +220,14 @@ def spot():
             best = d
             match = i
     if match is None:
-        return jsonify(hit=False, found=len(found), total=10)
+        return jsonify(hit=False, found=len(found), total=NSPOTS)
     found.add(match)
     session['found_spots'] = list(found)
     sx, sy = HOTSPOTS[match]
-    solved = len(found) == 10
+    solved = len(found) == NSPOTS
     if solved:
         session['solved'] = True
-    return jsonify(hit=True, x=sx, y=sy, found=len(found), total=10, solved=solved)
+    return jsonify(hit=True, x=sx, y=sy, found=len(found), total=NSPOTS, solved=solved)
 
 @app.post('/enter')
 def enter():
@@ -181,7 +237,7 @@ def enter():
     if request.form.get('website'):
         abort(400)
     if not session.get('solved'):
-        return page('<div class="error">Please complete the 10 differences before submitting. <a href="/">Try again</a>.</div>')
+        return page('<div class="error">Please complete the ' + str(NSPOTS) + ' differences before submitting. <a href="/">Try again</a>.</div>')
     entrant = request.form.get('entrant', '').strip()
     guardian = request.form.get('guardian', '').strip()
     contact = request.form.get('contact', '').strip().lower()
@@ -201,7 +257,7 @@ def enter():
 
 @app.get('/terms')
 def terms():
-    return page('''<section class="panel"><h1>Competition terms & privacy notice — draft</h1><p><b>Promoter:</b> LJ Hooker Alice Springs (confirm legal entity and address before launch).</p><p><b>Entry:</b> No purchase necessary. One entry per adult contact email. Entrants must find 10 differences, submit a memory of no more than 25 words, and provide contact details. Under-18s must enter with parent/guardian permission; an adult must provide the email address.</p><p><b>Period:</b> Proposed 23 November to 17 December 2026, closing 11:59 pm ACST. Confirm dates before publication.</p><p><b>Prizes:</b> First $500 Christmas package, second $300 family package, third $150 treats package, fourth and fifth family-of-four cinema vouchers (cinema, value and ticket conditions TBC). No cash alternative unless promoter agrees.</p><p><b>Draw:</b> Five distinct eligible winners selected randomly after closing; one prize per winner. Winners contacted using submitted email. Draw date, location, redraw procedure and prize collection deadline must be finalised before launch.</p><p><b>Privacy:</b> We collect names, adult/guardian contact email and submitted memory solely to administer the competition and contact winners. Optional marketing consent is separate and unchecked by default. Entrant information must be stored securely, accessible only to authorised staff and retained only as required by the approved retention policy. No public winner names or photos without appropriate consent.</p><p><b>Important:</b> These are draft rules, not a legal approval. Management must verify Northern Territory trade promotion requirements, eligibility, privacy, advertising claims and final prize details before publishing.</p></section>''', 'Terms')
+    return page('''<section class="panel"><h1>Competition terms & privacy notice — draft</h1><p><b>Promoter:</b> LJ Hooker Alice Springs (confirm legal entity and address before launch).</p><p><b>Entry:</b> No purchase necessary. One entry per adult contact email. Entrants must find NSPOTS differences, submit a memory of no more than 25 words, and provide contact details. Under-18s must enter with parent/guardian permission; an adult must provide the email address.</p><p><b>Period:</b> Proposed 23 November to 17 December 2026, closing 11:59 pm ACST. Confirm dates before publication.</p><p><b>Prizes:</b> First $500 Christmas package, second $300 family package, third $150 treats package, fourth and fifth family-of-four cinema vouchers (cinema, value and ticket conditions TBC). No cash alternative unless promoter agrees.</p><p><b>Draw:</b> Five distinct eligible winners selected randomly after closing; one prize per winner. Winners contacted using submitted email. Draw date, location, redraw procedure and prize collection deadline must be finalised before launch.</p><p><b>Privacy:</b> We collect names, adult/guardian contact email and submitted memory solely to administer the competition and contact winners. Optional marketing consent is separate and unchecked by default. Entrant information must be stored securely, accessible only to authorised staff and retained only as required by the approved retention policy. No public winner names or photos without appropriate consent.</p><p><b>Important:</b> These are draft rules, not a legal approval. Management must verify Northern Territory trade promotion requirements, eligibility, privacy, advertising claims and final prize details before publishing.</p></section>'''.replace('NSPOTS', str(NSPOTS)), 'Terms')
 
 def admin_required(fn):
     @wraps(fn)
@@ -232,7 +288,7 @@ def login():
             if login_locked():
                 err = '<div class="error">Too many incorrect attempts. Please try again in 15 minutes.</div>'
             time.sleep(0.5)
-    return page('<section class="panel"><h2>Secure administrator login</h2>' + err + '<form method="post"><input type="hidden" name="csrf" value="' + csrf() + '"><label>Password</label><input type="password" name="password" required><p><button>Sign in</button></p></form></section>', 'Admin login')
+    return page('<section class="panel login"><h2>Administrator login</h2><p class="muted small">Staff access only.</p>' + err + '<form method="post"><input type="hidden" name="csrf" value="' + csrf() + '"><label>Password</label><input type="password" name="password" required><p><button>Sign in</button></p></form></section>', 'Admin login')
 
 @app.post('/admin/logout')
 @admin_required
@@ -251,7 +307,7 @@ def admin():
     winners = ''.join(f'<tr><td>{d["place"]}</td><td>{E(d["entrant"])}</td><td>{E(d["contact"])}</td><td>{E(d["drawn_at"])}</td></tr>' for d in draws)
     token = csrf()
     disabled = 'disabled' if is_open() or len(draws) > 0 or len(entries) < 5 else ''
-    return page(f'''<section class="panel"><h2>Christmas raffle administration</h2><div class="stats"><div><b>{len(entries)}</b> total entries</div><div><b>{len(draws)}</b> winners drawn</div></div><p><a class="btn secondary" href="/admin/export">Export CSV</a></p><p class="muted small">Drawing is locked until the closing date. Once drawn, winners are saved and cannot be drawn again through the dashboard.</p><form method="post" action="/admin/draw"><input type="hidden" name="csrf" value="{token}"><button {disabled}>Draw five distinct winners</button></form><form method="post" action="/admin/logout"><input type="hidden" name="csrf" value="{token}"><p><button class="secondary">Log out</button></p></form></section><section class="panel"><h2>Winners</h2><div class="overflow"><table><tr><th>Place</th><th>Name</th><th>Email</th><th>Drawn</th></tr>{winners}</table></div></section><section class="panel"><h2>Entries (private)</h2><div class="overflow"><table><tr><th>ID</th><th>Name</th><th>Email</th><th>Memory</th><th>Submitted</th></tr>{rows}</table></div></section>''', 'Admin')
+    return page(f'''<section class="panel"><h2>🎄 Christmas competition administration</h2><div class="stats"><div><b>{len(entries)}</b> total entries</div><div><b>{len(draws)}</b> winners drawn</div></div><p><a class="btn secondary" href="/admin/export">Export CSV</a></p><p class="muted small">Drawing is locked until the closing date. Once drawn, winners are saved and cannot be drawn again through the dashboard.</p><form method="post" action="/admin/draw"><input type="hidden" name="csrf" value="{token}"><button {disabled}>Draw five distinct winners</button></form><form method="post" action="/admin/logout"><input type="hidden" name="csrf" value="{token}"><p><button class="secondary">Log out</button></p></form></section><section class="panel"><h2>Winners</h2><div class="overflow"><table><tr><th>Place</th><th>Name</th><th>Email</th><th>Drawn</th></tr>{winners}</table></div></section><section class="panel"><h2>Entries (private)</h2><div class="overflow"><table><tr><th>ID</th><th>Name</th><th>Email</th><th>Memory</th><th>Submitted</th></tr>{rows}</table></div></section>''', 'Admin')
 
 @app.get('/admin/export')
 @admin_required
