@@ -58,7 +58,20 @@ def _puzzle_size():
     with Image.open(path) as im:
         return im.size
 IMAGE_WIDTH, IMAGE_HEIGHT = _puzzle_size()
-HIT_RADIUS = max(24, int(round(min(IMAGE_WIDTH, IMAGE_HEIGHT) * 0.07)))
+HIT_RADIUS = max(24, int(round(min(IMAGE_WIDTH, IMAGE_HEIGHT) * 0.09)))
+# Progress in the session is tied to this exact puzzle (answers + picture size), so a
+# changed puzzle never inherits stale "already found" answers from an older session.
+PUZZLE_VERSION = hashlib.sha256(json.dumps([HOTSPOTS, IMAGE_WIDTH, IMAGE_HEIGHT]).encode()).hexdigest()[:16]
+
+def puzzle_progress():
+    if session.get('puzzle') != PUZZLE_VERSION:
+        reset_progress()
+    return set(i for i in (session.get('found_spots') or []) if isinstance(i, int) and 0 <= i < NSPOTS)
+
+def reset_progress():
+    session['puzzle'] = PUZZLE_VERSION
+    session['found_spots'] = []
+    session.pop('solved', None)
 
 def conn():
     c = sqlite3.connect(DB, timeout=10, check_same_thread=False)
@@ -145,7 +158,7 @@ h2{margin:0 0 14px;font-size:27px;font-weight:600;color:var(--ink)}h2 .num{displ
 h3{margin:0 0 8px;font-size:19px;font-weight:600;color:var(--green)}.muted{color:var(--muted)}p{line-height:1.6}
 .prizes{display:grid;grid-template-columns:repeat(5,1fr);gap:12px}.prize{border-radius:20px;padding:16px;background:var(--gold2);font-size:15px;text-align:center}.prize:nth-child(2n){background:var(--green2)}.prize:nth-child(3n){background:#ffecee}.prize strong{display:block;font-family:Fredoka,Nunito,sans-serif;font-size:26px;color:var(--red);margin:6px 0 2px;font-weight:700}
 .grid{display:grid;grid-template-columns:1fr 1fr;gap:18px}
-.puzzle{position:relative;overflow:hidden;border:4px solid #fff;border-radius:22px;cursor:pointer;touch-action:manipulation;background:#fff;box-shadow:0 0 0 3px var(--green2),0 6px 18px rgba(43,45,66,.08)}.puzzle img{width:100%;height:auto;display:block}
+.puzzle{position:relative;overflow:hidden;border:4px solid #fff;border-radius:22px;cursor:pointer;touch-action:manipulation;background:#fff;box-shadow:0 0 0 3px var(--green2),0 6px 18px rgba(43,45,66,.08)}.puzzle img{width:100%;height:auto;display:block;-webkit-user-drag:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;pointer-events:auto}.puzzle{-webkit-tap-highlight-color:transparent;user-select:none;-webkit-user-select:none}
 .mark{position:absolute;border:5px solid var(--green);background:rgba(30,138,76,.16);box-shadow:0 0 0 3px #fff;border-radius:50%;width:7%;aspect-ratio:1;transform:translate(-50%,-50%);pointer-events:none;animation:pop .45s cubic-bezier(.3,1.6,.5,1)}@keyframes pop{0%{transform:translate(-50%,-50%) scale(.2);opacity:0}100%{transform:translate(-50%,-50%) scale(1);opacity:1}}
 .miss{position:absolute;transform:translate(-50%,-50%);pointer-events:none;font-size:22px;animation:fade .7s ease-out forwards}@keyframes fade{to{opacity:0;transform:translate(-50%,-90%)}}
 .sparkle{position:absolute;pointer-events:none;font-size:20px;transform:translate(-50%,-50%);animation:fly .8s ease-out forwards}@keyframes fly{to{opacity:0;transform:translate(calc(-50% + var(--dx)),calc(-50% + var(--dy))) scale(.6) rotate(160deg)}}
@@ -179,10 +192,12 @@ def page(body, title='Spot the Magic'):
 @app.get('/')
 def home():
     token = csrf()
+    found_now = sorted(puzzle_progress())
+    found_js = json.dumps([[HOTSPOTS[i][0] / IMAGE_WIDTH, HOTSPOTS[i][1] / IMAGE_HEIGHT] for i in found_now])
     closed = not is_open()
     body = '''<section class="hero"><div class="eyebrow">🎅 A Christmas activity for kids &amp; families</div><h1>Spot the Magic<br>of <em>Christmas!</em> 🎄</h1><p>Find NSPOTS differences. Share your favourite Christmas memory in 25 words or less.<br>Enter for a chance to win one of five prizes!</p><span class="pill">🎁 5 PRIZES • 5 WINNERS 🎁</span><div class="deco" aria-hidden="true">🎄 ⭐ 🎁 ❄️ 🦌 ❄️ 🎁 ⭐ 🎄</div></section>
  <section class="panel"><h2>🎁 Five chances to win</h2><div class="prizes"><div class="prize">🥇 First prize<strong>$500</strong>Ultimate Christmas Package</div><div class="prize">🥈 Second prize<strong>$300</strong>Family Fun Package</div><div class="prize">🥉 Third prize<strong>$150</strong>Christmas Treat Package</div><div class="prize">🎬 Fourth prize<strong>Cinema</strong>Family-of-four voucher</div><div class="prize">🍿 Fifth prize<strong>Cinema</strong>Family-of-four voucher</div></div><p class="muted small">Cinema voucher values and conditions to be confirmed. Prizes are proposed pending approval.</p></section>
- <section class="panel"><h2><span class="num">1</span>Find the NSPOTS differences</h2><p class="muted">Tap the differences in either picture. A green circle pops up each time you find one! Zoom in on your phone if needed.</p><div class="counter"><b id="count">0 / NSPOTS found</b><span class="chip" id="chip">🔍 Keep looking!</span></div><div class="stars" id="stars" aria-hidden="true">STARS</div><div class="progress"><div class="bar" id="bar"></div></div><div class="grid" style="margin-top:16px"><div><h3>Picture A</h3><div class="puzzle" data-puzzle="a"><img alt="Christmas scene A" src="/static/Christmas_Spot_10_A.png"></div></div><div><h3>Picture B</h3><div class="puzzle" data-puzzle="b"><img alt="Christmas scene B" src="/static/Christmas_Spot_10_B.png"></div></div></div><p id="puzzlemsg" class="muted small" aria-live="polite">Find all NSPOTS to unlock the entry form.</p><div class="celebrate" id="celebrate">🎉 Hooray! You found all NSPOTS differences! 🎉</div></section><div class="toast" id="toast" role="status"></div>
+ <section class="panel"><h2><span class="num">1</span>Find the NSPOTS differences</h2><p class="muted">Tap the differences in either picture. A green circle pops up each time you find one! Zoom in on your phone if needed.</p><div class="counter"><b id="count">0 / NSPOTS found</b><span class="chip" id="chip">🔍 Keep looking!</span></div><div class="stars" id="stars" aria-hidden="true">STARS</div><div class="progress"><div class="bar" id="bar"></div></div><div class="grid" style="margin-top:16px"><div><h3>Picture A</h3><div class="puzzle" data-puzzle="a"><img alt="Christmas scene A" src="/static/Christmas_Spot_10_A.png" draggable="false"></div></div><div><h3>Picture B</h3><div class="puzzle" data-puzzle="b"><img alt="Christmas scene B" src="/static/Christmas_Spot_10_B.png" draggable="false"></div></div></div><p id="puzzlemsg" class="muted small" aria-live="polite">Find all NSPOTS to unlock the entry form.</p><p><button type="button" class="secondary" id="restart">🔄 Start again</button></p><div class="celebrate" id="celebrate">🎉 Hooray! You found all NSPOTS differences! 🎉</div></section><div class="toast" id="toast" role="status"></div>
  <section class="panel" id="entry"><h2><span class="num">2</span>Your favourite Christmas memory</h2><p>Tell us your favourite Christmas memory in <b>25 words or less</b>.</p><form method="post" action="/enter" id="entryform"><input type="hidden" name="csrf" value="TOKEN"><div style="display:none"><label>Leave this field empty<input name="website" autocomplete="off"></label></div><label for="memory">My Christmas memory</label><textarea name="memory" id="memory" maxlength="300" required placeholder="One Christmas I remember..."></textarea><div class="muted small" id="words">0 / 25 words</div><div class="grid"><div><label for="entrant">Entrant's full name</label><input id="entrant" name="entrant" maxlength="100" required></div><div><label for="guardian">Parent/guardian name (if entrant is under 18)</label><input id="guardian" name="guardian" maxlength="100"></div></div><label for="contact">Parent/guardian or adult entrant's email address</label><input type="email" name="contact" id="contact" maxlength="150" required><div class="check"><input type="checkbox" name="terms" value="yes" id="terms" required><label for="terms">I am 18 or older and am entering for myself or with the permission of the child’s parent/guardian. I accept the <a href="/terms" target="_blank">competition terms and privacy notice</a>.</label></div><div class="check"><input type="checkbox" name="marketing" value="yes" id="marketing"><label for="marketing">Optional: I would like to receive LJ Hooker Alice Springs marketing emails. This is not required to enter.</label></div><p><button id="submit" disabled>Complete the puzzle to enter</button></p><p class="muted small">One entry per contact email. No purchase necessary. The draw is random; finding the differences and completing the memory are eligibility steps, not judging criteria.</p></form></section>'''.replace('TOKEN', token).replace('STARS', '<span>⭐</span>' * NSPOTS).replace('NSPOTS', str(NSPOTS))
     if closed:
         body = '<section class="hero"><h1>Entries are closed ❄️</h1><p>Thank you for joining our Christmas community giveaway.</p></section>'
@@ -192,9 +207,18 @@ const cheers=['Great spotting!','Well done!','You found one!','Super sleuth!','H
 function toast(t){const el=document.querySelector('#toast');el.textContent=t;el.classList.add('show');clearTimeout(toast.t);toast.t=setTimeout(()=>el.classList.remove('show'),1400)}
 function sparkle(p,lx,ly){for(let i=0;i<8;i++){const s=document.createElement('span');s.className='sparkle';s.textContent=['✨','⭐','❄️'][i%3];const a=i/8*6.283;s.style.left=lx+'%';s.style.top=ly+'%';s.style.setProperty('--dx',Math.cos(a)*60+'px');s.style.setProperty('--dy',Math.sin(a)*60+'px');p.append(s);setTimeout(()=>s.remove(),900)}}
 function confetti(){const items=['🎉','⭐','❄️','🎄','🎁','✨','🔔'];for(let i=0;i<60;i++){const c=document.createElement('span');c.className='confetti';c.textContent=items[i%items.length];c.style.left=Math.random()*100+'vw';c.style.animationDuration=(2.2+Math.random()*2.2)+'s';c.style.animationDelay=Math.random()*.8+'s';document.body.append(c);setTimeout(()=>c.remove(),5500)}}
-for(const p of document.querySelectorAll('.puzzle'))p.addEventListener('click',async e=>{const r=p.getBoundingClientRect(),x=(e.clientX-r.left)/r.width*imgW,y=(e.clientY-r.top)/r.height*imgH;let data;try{const res=await fetch('/spot',{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-Token':csrfToken},body:JSON.stringify({x,y})});if(!res.ok)return;data=await res.json()}catch(err){return}if(!data.hit){const m=document.createElement('span');m.className='miss';m.textContent='❄️';m.style.left=(x/imgW*100)+'%';m.style.top=(y/imgH*100)+'%';p.append(m);setTimeout(()=>m.remove(),800);return}const lx=data.x/imgW*100,ly=data.y/imgH*100;for(const q of document.querySelectorAll('.puzzle')){const m=document.createElement('span');m.className='mark';m.style.left=lx+'%';m.style.top=ly+'%';q.append(m);sparkle(q,lx,ly)}document.querySelector('#count').textContent=data.found+' / '+total+' found';document.querySelector('#bar').style.width=(data.found/total*100)+'%';const st=document.querySelectorAll('#stars span');for(let i=0;i<st.length;i++)st[i].classList.toggle('on',i<data.found);const left=total-data.found;document.querySelector('#chip').textContent=left===1?'⭐ Just 1 to go!':'🔍 '+left+' to go!';if(data.solved){document.querySelector('#chip').textContent='🌟 All found!';document.querySelector('#puzzlemsg').textContent='Wonderful! You found all '+total+'. Complete your entry below.';document.querySelector('#celebrate').classList.add('show');confetti();toast('🎉 You did it!');document.querySelector('#submit').disabled=false;document.querySelector('#submit').textContent='🎁 Enter the Christmas draw'}else toast('✨ '+cheers[Math.floor(Math.random()*cheers.length)])});
+function showProgress(found,solved,celebrate){document.querySelector('#count').textContent=found+' / '+total+' found';document.querySelector('#bar').style.width=(found/total*100)+'%';const st=document.querySelectorAll('#stars span');for(let i=0;i<st.length;i++)st[i].classList.toggle('on',i<found);const left=total-found;document.querySelector('#chip').textContent=solved?'🌟 All found!':(left===1?'⭐ Just 1 to go!':'🔍 '+left+' to go!');const sub=document.querySelector('#submit');if(solved){document.querySelector('#puzzlemsg').textContent='Wonderful! You found all '+total+'. Complete your entry below.';document.querySelector('#celebrate').classList.add('show');sub.disabled=false;sub.textContent='🎁 Enter the Christmas draw';if(celebrate){confetti();toast('🎉 You did it!')}}else{document.querySelector('#puzzlemsg').textContent='Find all '+total+' to unlock the entry form.';document.querySelector('#celebrate').classList.remove('show');sub.disabled=true;sub.textContent='Complete the puzzle to enter'}}
+function addMark(fx,fy,burst){for(const q of document.querySelectorAll('.puzzle')){const m=document.createElement('span');m.className='mark';m.style.left=fx*100+'%';m.style.top=fy*100+'%';q.append(m);if(burst)sparkle(q,fx*100,fy*100)}}
+let lastMiss=0;
+async function tapAt(p,clientX,clientY){const img=p.querySelector('img'),r=img.getBoundingClientRect();if(!r.width||!r.height)return;const fx=(clientX-r.left)/r.width,fy=(clientY-r.top)/r.height;if(fx<0||fx>1||fy<0||fy>1)return;const slow=setTimeout(()=>toast('⏳ Waking up the elves… one moment'),1500);let res,data;try{res=await fetch('/spot',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json','X-CSRF-Token':csrfToken},body:JSON.stringify({fx,fy})})}catch(err){clearTimeout(slow);toast('📶 Couldn’t reach the site. Please try again.');return}clearTimeout(slow);if(res.status===403){toast('🔄 Refreshing the page…');setTimeout(()=>location.reload(),900);return}if(!res.ok){toast('😕 Something went wrong. Please try again.');return}try{data=await res.json()}catch(err){toast('😕 Something went wrong. Please try again.');return}
+if(!data.hit){const m=document.createElement('span');m.className='miss';m.textContent='❄️';m.style.left=fx*100+'%';m.style.top=fy*100+'%';p.append(m);setTimeout(()=>m.remove(),800);if(Date.now()-lastMiss>2500){lastMiss=Date.now();toast(data.found>=total?'🌟 You found them all already!':'👀 Not there, keep looking!')}return}
+addMark(data.fx,data.fy,true);showProgress(data.found,data.solved,data.solved);if(!data.solved)toast('✨ '+cheers[Math.floor(Math.random()*cheers.length)])}
+for(const p of document.querySelectorAll('.puzzle')){p.addEventListener('click',e=>tapAt(p,e.clientX,e.clientY));p.addEventListener('contextmenu',e=>e.preventDefault());p.addEventListener('dragstart',e=>e.preventDefault())}
+for(const [fx,fy] of FOUND_JS)addMark(fx,fy,false);
+showProgress(FOUND_JS.length,FOUND_JS.length>=total,false);
+document.querySelector('#restart')?.addEventListener('click',async()=>{try{const r=await fetch('/reset',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json','X-CSRF-Token':csrfToken},body:'{}'});if(r.status===403){location.reload();return}}catch(err){}document.querySelectorAll('.mark').forEach(m=>m.remove());showProgress(0,false,false);toast('🔄 New game, good luck!')});
 const mem=document.querySelector('#memory');mem?.addEventListener('input',()=>{const n=mem.value.trim()?mem.value.trim().split(/\\s+/).length:0;document.querySelector('#words').textContent=n+' / 25 words';mem.setCustomValidity(n>25?'Please use 25 words or fewer.':'')});
-</script>'''.replace('TOKEN', token).replace('IMG_W', str(IMAGE_WIDTH)).replace('IMG_H', str(IMAGE_HEIGHT)).replace('NSPOTS', str(NSPOTS))
+</script>'''.replace('TOKEN', token).replace('IMG_W', str(IMAGE_WIDTH)).replace('IMG_H', str(IMAGE_HEIGHT)).replace('NSPOTS', str(NSPOTS)).replace('FOUND_JS', found_js)
     return page(body + ('' if closed else script))
 
 @app.post('/spot')
@@ -204,12 +228,17 @@ def spot():
         return jsonify(hit=False, error='closed'), 403
     data = request.get_json(silent=True) or {}
     try:
-        x = float(data['x']); y = float(data['y'])
+        if 'fx' in data:  # fraction of the displayed picture (0..1): independent of picture size
+            x = float(data['fx']) * IMAGE_WIDTH; y = float(data['fy']) * IMAGE_HEIGHT
+        else:
+            x = float(data['x']); y = float(data['y'])
     except (KeyError, TypeError, ValueError):
         abort(400)
+    if not (math.isfinite(x) and math.isfinite(y)):
+        abort(400)
+    found = puzzle_progress()
     if not (0 <= x <= IMAGE_WIDTH and 0 <= y <= IMAGE_HEIGHT):
-        return jsonify(hit=False, found=len(session.get('found_spots') or []), total=NSPOTS)
-    found = set(session.get('found_spots') or [])
+        return jsonify(hit=False, found=len(found), total=NSPOTS)
     match = None
     best = HIT_RADIUS
     for i, (sx, sy) in enumerate(HOTSPOTS):
@@ -227,7 +256,13 @@ def spot():
     solved = len(found) == NSPOTS
     if solved:
         session['solved'] = True
-    return jsonify(hit=True, x=sx, y=sy, found=len(found), total=NSPOTS, solved=solved)
+    return jsonify(hit=True, x=sx, y=sy, fx=sx / IMAGE_WIDTH, fy=sy / IMAGE_HEIGHT, found=len(found), total=NSPOTS, solved=solved)
+
+@app.post('/reset')
+def reset():
+    checkcsrf()
+    reset_progress()
+    return jsonify(ok=True, found=0, total=NSPOTS)
 
 @app.post('/enter')
 def enter():
@@ -236,7 +271,7 @@ def enter():
         return page('<div class="error">Entries are closed.</div>')
     if request.form.get('website'):
         abort(400)
-    if not session.get('solved'):
+    if not (session.get('solved') and session.get('puzzle') == PUZZLE_VERSION):
         return page('<div class="error">Please complete the ' + str(NSPOTS) + ' differences before submitting. <a href="/">Try again</a>.</div>')
     entrant = request.form.get('entrant', '').strip()
     guardian = request.form.get('guardian', '').strip()
@@ -252,7 +287,9 @@ def enter():
             c.execute('INSERT INTO entries(created,entrant,guardian,contact,memory,consent,marketing,contact_hash) VALUES(?,?,?,?,?,?,?,?)',
                       (datetime.now().astimezone().isoformat(), entrant, guardian, contact, memory, 1, int(marketing), digest))
     except sqlite3.IntegrityError:
+        reset_progress()
         return page('<section class="panel"><h2>Already entered 🎄</h2><p>We have already received an entry for this email address. Only one entry per contact is allowed.</p></section>')
+    reset_progress()
     return page('<section class="hero"><h1>YOU’RE IN! 🎉</h1><p>Thank you for sharing the Christmas magic. Your entry has been received for the five-prize random draw.</p></section><section class="panel"><p>Keep an eye on your email for the winner notification. Good luck!</p></section>')
 
 @app.get('/terms')
