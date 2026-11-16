@@ -2,7 +2,7 @@
 
 A working Flask website with a mobile-first public competition, 10 tappable differences (using the two supplied illustrations), 25-word memory validation, five prize listings, a database-backed entry form, and password-protected raffle administration.
 
-Difference answers are not stored in this repository. They must be provided at runtime as the `HOTSPOTS_JSON` environment variable (a JSON list of `[x, y]` points, one point per difference, in the 1000×660 image space). Keep that value only in the host environment or a local file that is never committed.
+Difference answers are not stored in this repository. They must be provided at runtime as the `HOTSPOTS_JSON` environment variable (a JSON list of `[x, y]` points, one point per difference, in the pixel space of the puzzle images). Keep that value only in the host environment or a local file that is never committed.
 
 ## Run locally
 

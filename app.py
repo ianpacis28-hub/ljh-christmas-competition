@@ -51,6 +51,14 @@ def load_hotspots():
 HOTSPOTS = load_hotspots()
 _login_attempts = {}
 
+def _puzzle_size():
+    from PIL import Image
+    path = os.path.join(app.static_folder or 'static', 'Christmas_Spot_10_A.png')
+    with Image.open(path) as im:
+        return im.size
+IMAGE_WIDTH, IMAGE_HEIGHT = _puzzle_size()
+HIT_RADIUS = max(48, int(round(min(IMAGE_WIDTH, IMAGE_HEIGHT) * 0.07)))
+
 def conn():
     c = sqlite3.connect(DB, timeout=10, check_same_thread=False)
     c.row_factory = sqlite3.Row
@@ -127,10 +135,10 @@ def home():
     if closed:
         body = '<section class="hero"><h1>Entries are closed</h1><p>Thank you for joining our Christmas community giveaway.</p></section>'
     script = '''<script>
-const csrfToken="TOKEN";
-for(const p of document.querySelectorAll('.puzzle'))p.addEventListener('click',async e=>{const r=p.getBoundingClientRect(),x=(e.clientX-r.left)/r.width*1000,y=(e.clientY-r.top)/r.height*660;let data;try{const res=await fetch('/spot',{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-Token':csrfToken},body:JSON.stringify({x,y})});if(!res.ok)return;data=await res.json()}catch(err){return}if(!data.hit)return;for(const q of document.querySelectorAll('.puzzle')){const m=document.createElement('span');m.className='mark';m.style.left=data.x/10+'%';m.style.top=data.y/6.6+'%';q.append(m)}document.querySelector('#count').textContent=data.found+' / 10 found';document.querySelector('#bar').style.width=data.found*10+'%';if(data.solved){document.querySelector('#puzzlemsg').textContent='Wonderful! You found all 10. Complete your entry below.';document.querySelector('#submit').disabled=false;document.querySelector('#submit').textContent='Enter the Christmas draw'}});
+const csrfToken="TOKEN",imgW=IMG_W,imgH=IMG_H;
+for(const p of document.querySelectorAll('.puzzle'))p.addEventListener('click',async e=>{const r=p.getBoundingClientRect(),x=(e.clientX-r.left)/r.width*imgW,y=(e.clientY-r.top)/r.height*imgH;let data;try{const res=await fetch('/spot',{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-Token':csrfToken},body:JSON.stringify({x,y})});if(!res.ok)return;data=await res.json()}catch(err){return}if(!data.hit)return;for(const q of document.querySelectorAll('.puzzle')){const m=document.createElement('span');m.className='mark';m.style.left=(data.x/imgW*100)+'%';m.style.top=(data.y/imgH*100)+'%';q.append(m)}document.querySelector('#count').textContent=data.found+' / 10 found';document.querySelector('#bar').style.width=data.found*10+'%';if(data.solved){document.querySelector('#puzzlemsg').textContent='Wonderful! You found all 10. Complete your entry below.';document.querySelector('#submit').disabled=false;document.querySelector('#submit').textContent='Enter the Christmas draw'}});
 const mem=document.querySelector('#memory');mem?.addEventListener('input',()=>{const n=mem.value.trim()?mem.value.trim().split(/\\s+/).length:0;document.querySelector('#words').textContent=n+' / 25 words';mem.setCustomValidity(n>25?'Please use 25 words or fewer.':'')});
-</script>'''.replace('TOKEN', token)
+</script>'''.replace('TOKEN', token).replace('IMG_W', str(IMAGE_WIDTH)).replace('IMG_H', str(IMAGE_HEIGHT))
     return page(body + ('' if closed else script))
 
 @app.post('/spot')
@@ -143,11 +151,11 @@ def spot():
         x = float(data['x']); y = float(data['y'])
     except (KeyError, TypeError, ValueError):
         abort(400)
-    if not (0 <= x <= 1000 and 0 <= y <= 660):
+    if not (0 <= x <= IMAGE_WIDTH and 0 <= y <= IMAGE_HEIGHT):
         return jsonify(hit=False, found=len(session.get('found_spots') or []), total=10)
     found = set(session.get('found_spots') or [])
     match = None
-    best = 48
+    best = HIT_RADIUS
     for i, (sx, sy) in enumerate(HOTSPOTS):
         if i in found:
             continue
