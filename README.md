@@ -19,7 +19,7 @@ The app listens on `PORT` if set, otherwise port 8080. Open http://127.0.0.1:808
 
 ## Deploy for testing (Render)
 
-This copy is set up so it can run on Render's free plan for testing. That plan has **no persistent disk**, so `DATABASE_PATH` defaults to a local `entries.sqlite3` file. Entries and draw results will be lost when the service restarts, sleeps, or is redeployed. That is acceptable for a test deploy only. Do not run a live competition on the free plan.
+This copy is set up so it can run on Render's free plan for testing. That plan has **no persistent disk**. If `DATABASE_URL` is not set, `DATABASE_PATH` defaults to a local `entries.sqlite3` file and entries and draw results will be lost when the service restarts, sleeps, or is redeployed. To keep entries across restarts, set `DATABASE_URL` to a Postgres connection string (for example a Neon free-tier database) with `sslmode=require`.
 
 Use a production WSGI start command such as:
 
@@ -35,7 +35,8 @@ Set these environment variables on the host (do not put them in the repository):
 - `HOTSPOTS_JSON` — the JSON list of 10 `[x, y]` points
 - `CLOSING_DATE` — ISO-8601 with the ACST offset, once dates are confirmed
 - `PUBLIC_URL` — the live https URL, once you have it
-- `DATABASE_PATH` — optional; defaults to `entries.sqlite3` in the service's ephemeral filesystem
+- `DATABASE_URL` — optional; a Postgres URL such as `postgresql://USER:PASSWORD@HOST/dbname?sslmode=require`. When set, entries and draw results are stored in that database instead of SQLite. Use this for a live competition (Neon free tier is enough). Do not put the URL in the repository.
+- `DATABASE_PATH` — optional SQLite file path, used only when `DATABASE_URL` is unset; defaults to `entries.sqlite3` in the service's ephemeral filesystem
 
 Enable HTTPS (Render provides this), platform rate limiting if available, and access logging without personal data. The admin dashboard is password protected but should additionally be placed behind identity-aware access control/MFA or restricted to staff IPs for anything beyond a private test. **Do not deploy a public competition without a security review, management approval, and legally reviewed terms.**
 
@@ -56,7 +57,7 @@ This creates `competition_qr.png`. A shared QR code is simply a link; anyone wit
 - The code currently allows one entry per email, **not** necessarily one per individual. Verify eligibility and duplicates before drawing.
 - Parent/guardian permission is attested but not independently verified. Confirm child-safety and consent process.
 - Entry form currently requires all ten differences. A wrong tap does nothing; no solution is displayed until all ten are found.
-- Winners are selected by cryptographic system randomness and persisted. On a plan with only ephemeral storage, back up is not available — use persistent storage or managed Postgres before a real draw.
+- Winners are selected by cryptographic system randomness and persisted. Set `DATABASE_URL` to managed Postgres (for example Neon) before a real draw so entries survive restarts.
 - There is no email sending or automatic winner notification; staff contact winners manually.
 - Artwork is provided from the existing proposal. Validate the ten hotspot positions on all devices before launch.
 
@@ -68,6 +69,7 @@ The public look and competition rules are unchanged. The following reliability a
 - Difference answers are not in the repository or the page JavaScript. Clicks are checked on the server using `HOTSPOTS_JSON`; the entry form only unlocks after all 10 are found in that session.
 - Admin login hashes the password before a constant-time compare, and locks an IP for 15 minutes after 5 failed attempts.
 - SQLite uses WAL mode, a busy timeout, and an immediate transaction around the raffle draw so two clicks cannot draw twice.
+- When `DATABASE_URL` is set, the same tables are created in Postgres and used instead of the SQLite file. Connections are opened per request so a serverless host such as Neon can close idle connections or scale to zero. SQLite behaviour is unchanged if `DATABASE_URL` is unset.
 - `ProxyFix` is enabled so HTTPS and client IPs work correctly behind Render or another proxy.
 
 Do not deploy a public competition without a security review, management approval, and legally reviewed terms.
