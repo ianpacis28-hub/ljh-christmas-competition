@@ -179,26 +179,31 @@ def init():
         else:
             c.execute('CREATE TABLE IF NOT EXISTS entries(id INTEGER PRIMARY KEY, created TEXT NOT NULL, entrant TEXT NOT NULL, guardian TEXT, contact TEXT NOT NULL, phone TEXT NOT NULL DEFAULT \'\', memory TEXT NOT NULL, consent INTEGER NOT NULL, marketing INTEGER NOT NULL DEFAULT 0, contact_hash TEXT UNIQUE NOT NULL, source TEXT NOT NULL DEFAULT \'online\')')
             c.execute('CREATE TABLE IF NOT EXISTS draws(place INTEGER PRIMARY KEY, entry_id INTEGER UNIQUE NOT NULL, drawn_at TEXT NOT NULL)')
-        try:
+        # Add missing columns only. A failed ALTER on Postgres aborts the
+        # transaction, so do not run ALTER when the column already exists.
+        if DATABASE_URL:
+            cols = {str(r[0]).lower() for r in c.execute(
+                "SELECT column_name FROM information_schema.columns WHERE table_schema = current_schema() AND table_name = 'entries'"
+            ).fetchall()}
+        else:
+            cols = {str(r[1]).lower() for r in c.execute('PRAGMA table_info(entries)').fetchall()}
+        if 'source' not in cols:
             c.execute("ALTER TABLE entries ADD COLUMN source TEXT NOT NULL DEFAULT 'online'")
-        except Exception as err:
-            msg = str(err).lower()
-            if 'duplicate column' not in msg and 'already exists' not in msg:
-                raise
-        try:
-            c.execute("ALTER TABLE entries ADD COLUMN IF NOT EXISTS phone TEXT NOT NULL DEFAULT ''")
-        except Exception as err:
-            msg = str(err).lower()
-            if 'duplicate column' in msg or 'already exists' in msg:
-                pass
-            else:
-                # SQLite may not accept IF NOT EXISTS on ADD COLUMN
-                try:
+        if 'phone' not in cols:
+            try:
+                c.execute("ALTER TABLE entries ADD COLUMN IF NOT EXISTS phone TEXT NOT NULL DEFAULT ''")
+            except Exception as err:
+                msg = str(err).lower()
+                if DATABASE_URL:
+                    try:
+                        c._raw.rollback()
+                    except Exception:
+                        pass
+                if 'duplicate column' in msg or 'already exists' in msg:
+                    pass
+                else:
+                    # SQLite may not accept IF NOT EXISTS on ADD COLUMN
                     c.execute("ALTER TABLE entries ADD COLUMN phone TEXT NOT NULL DEFAULT ''")
-                except Exception as err2:
-                    msg2 = str(err2).lower()
-                    if 'duplicate column' not in msg2 and 'already exists' not in msg2:
-                        raise
 init()
 
 def csrf():
